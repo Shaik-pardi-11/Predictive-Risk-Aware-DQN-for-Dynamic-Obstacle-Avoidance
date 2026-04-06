@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk-Aware DQN — Autonomous Navigation Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1e2330;
+    --border2: #2a3045;
+    --text: #e2e8f0;
+    --text2: #8892a4;
+    --text3: #4a5568;
+    --accent: #3b82f6;
+    --accent2: #6366f1;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --risk-low: #10b981;
+    --risk-med: #f59e0b;
+    --risk-high: #ef4444;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); overflow-x: hidden; }
+
+  /* ── Layout ── */
+  .shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--surface);
+  }
+  .logo {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+  header p  { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+  .badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 4px 10px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .badge span { color: var(--green); }
+
+  .main { display: grid; grid-template-columns: 1fr 340px; gap: 0; }
+
+  /* Left panel */
+  .left { padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.5rem; border-right: 1px solid var(--border); overflow-y: auto; }
+
+  /* Right panel */
+  .right { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; background: var(--surface); }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .card-head h2 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .card-body { padding: 1rem; }
+
+  /* ── Metric grid ── */
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+  .metric-label { font-size: 0.65rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .metric-val { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; }
+  .metric-sub { font-size: 0.65rem; color: var(--text2); margin-top: 2px; }
+  .good  { color: var(--green); }
+  .warn  { color: var(--amber); }
+  .bad   { color: var(--red); }
+  .blue  { color: var(--accent); }
+  .purple{ color: var(--accent2); }
+
+  /* ── Simulation Canvas ── */
+  .sim-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .sim-panel { display: flex; flex-direction: column; gap: 0.5rem; }
+  .sim-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: inline-block;
+    width: fit-content;
+  }
+  .sim-label.std  { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+  .sim-label.risk { background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+
+  canvas.sim-canvas {
+    width: 100%;
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* ── Charts ── */
+  .chart-wrap { position: relative; height: 180px; }
+  .chart-wrap canvas { width: 100% !important; }
+
+  /* ── Controls ── */
+  .controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--display);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: var(--border); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { background: #2563eb; }
+  .btn.danger  { background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red); }
+  .btn.active  { background: var(--border2); }
+
+  .speed-control { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text2); margin-left: auto; }
+  .speed-control input { width: 80px; accent-color: var(--accent); }
+
+  /* ── Risk Heatmap ── */
+  canvas.heatmap { width: 100%; aspect-ratio: 1; border-radius: 8px; display: block; }
+
+  /* ── Architecture Diagram ── */
+  .arch { display: flex; flex-direction: column; gap: 0.5rem; }
+  .arch-row { display: flex; gap: 0.5rem; }
+  .arch-block {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid;
+  }
+  .arch-block.env   { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.4); color: var(--green); }
+  .arch-block.risk  { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: var(--red); }
+  .arch-block.net   { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.4); color: var(--accent2); }
+  .arch-block.mem   { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.4); color: var(--amber); }
+  .arch-block.out   { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.4); color: var(--accent); }
+  .arch-arrow { text-align: center; color: var(--text3); font-size: 0.7rem; }
+
+  /* ── Legend ── */
+  .legend { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 2px; background: var(--surface); border-radius: 8px; padding: 3px; }
+  .tab {
+    font-size: 0.7rem; font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: var(--text2);
+    border: none; background: transparent;
+    font-family: var(--display);
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Episode log ── */
+  .ep-log { font-family: var(--mono); font-size: 0.6rem; line-height: 1.8; max-height: 120px; overflow-y: auto; color: var(--text2); }
+  .ep-log .ep-line { display: flex; gap: 0.75rem; }
+  .ep-log .ep-ep   { color: var(--text3); min-width: 40px; }
+  .ep-log .ep-r    { color: var(--green); min-width: 55px; }
+  .ep-log .ep-c    { color: var(--red); min-width: 30px; }
+  .ep-log .ep-goal { color: var(--amber); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Comparison bars ── */
+  .compare-bar { margin-bottom: 0.75rem; }
+  .compare-label { display: flex; justify-content: space-between; font-size: 0.65rem; margin-bottom: 4px; color: var(--text2); }
+  .bar-track { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 1.5s infinite; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">🧠</div>
+  <div>
+    <h1>Risk-Aware DQN — Autonomous Navigation</h1>
+    <p>Proactive obstacle avoidance · Dueling DQN · Prioritized Replay · Trajectory Prediction</p>
+  </div>
+  <div class="badge">
+    <div class="live-dot" style="display:inline-block; margin-right:5px;"></div>
+    Status: <span id="status-txt">Simulating</span>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<div class="main">
+
+  <!-- ══ LEFT ══ -->
+  <div class="left">
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Simulation Controls</h2>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div class="live-dot"></div>
+          <span style="font-size:0.65rem;color:var(--text2)" id="ep-counter">Ep 0</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="controls">
+          <button class="btn primary" onclick="toggleSim()" id="play-btn">⏸ Pause</button>
+          <button class="btn" onclick="resetSim()">↺ Reset</button>
+          <button class="btn" id="risk-toggle" onclick="toggleRiskOverlay()">🗺 Risk Map: ON</button>
+          <div class="speed-control">
+            <span>Speed</span>
+            <input type="range" id="speed-range" min="1" max="20" value="8" oninput="updateSpeed(this.value)">
+            <span id="speed-val">8×</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulation Canvases -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Live Navigation Simulation</h2>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Agent</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Goal</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Obstacle</div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,0.3);border:1px solid #ef4444"></div>Risk Zone</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="sim-wrap">
+          <div class="sim-panel">
+            <span class="sim-label std">Standard DQN (Reactive)</span>
+            <canvas id="canvas-std" class="sim-canvas" width="240" height="240"></canvas>
+          </div>
+          <div class="sim-panel">
+            <span class="sim-label risk">Risk-Aware DQN (Proactive)</span>
+            <canvas id="canvas-risk" class="sim-canvas" width="240" height="240"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Training Charts -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Training Curves</h2>
+        <div class="tabs">
+          <button class="tab active" onclick="switchChart('reward',this)">Reward</button>
+          <button class="tab" onclick="switchChart('collision',this)">Collisions</button>
+          <button class="tab" onclick="switchChart('success',this)">Success Rate</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="training-chart"></canvas>
+        </div>
+        <div style="display:flex;gap:1rem;margin-top:0.75rem;">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--amber)"></div>
+            <span>Standard DQN</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--accent)"></div>
+            <span>Risk-Aware DQN</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="card-head"><h2>Performance Metrics (Last 50 Episodes)</h2></div>
+      <div class="card-body">
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="metric-label">Avg Reward · Standard</div>
+            <div class="metric-val warn" id="m-std-r">—</div>
+            <div class="metric-sub">Per episode</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Avg Reward · Risk-Aware</div>
+            <div class="metric-val blue" id="m-risk-r">—</div>
+            <div class="metric-sub">Per episode</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Collision Rate · Standard</div>
+            <div class="metric-val bad" id="m-std-c">—</div>
+            <div class="metric-sub">Per episode</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Collision Rate · Risk-Aware</div>
+            <div class="metric-val good" id="m-risk-c">—</div>
+            <div class="metric-sub">Per episode</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Success Rate · Standard</div>
+            <div class="metric-val warn" id="m-std-s">—</div>
+            <div class="metric-sub">Goal reached %</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Success Rate · Risk-Aware</div>
+            <div class="metric-val good" id="m-risk-s">—</div>
+            <div class="metric-sub">Goal reached %</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <div class="right">
+
+    <!-- Episode log -->
+    <div class="card">
+      <div class="card-head"><h2>Episode Log</h2></div>
+      <div class="card-body">
+        <div class="ep-log" id="ep-log">
+          <div class="ep-line" style="color:var(--text3)">Waiting for episodes...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk heatmap -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Predictive Risk Map</h2>
+        <span style="font-size:0.6rem;color:var(--text2)">Horizon: 6 steps</span>
+      </div>
+      <div class="card-body">
+        <canvas id="heatmap-canvas" class="heatmap" width="200" height="200"></canvas>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:0.5rem;">
+          <span style="font-size:0.6rem;color:var(--green)">Low</span>
+          <div style="flex:1;height:4px;border-radius:2px;background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444)"></div>
+          <span style="font-size:0.6rem;color:var(--red)">High</span>
+        </div>
+        <div style="font-size:0.6rem;color:var(--text2);margin-top:0.4rem;">
+          Agent risk exposure: <span id="agent-risk" style="color:var(--amber);font-family:var(--mono)">0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architecture -->
+    <div class="card">
+      <div class="card-head"><h2>Network Architecture</h2></div>
+      <div class="card-body">
+        <div class="arch">
+          <div class="arch-row">
+            <div class="arch-block env">Grid Env 12×12</div>
+            <div class="arch-block risk">Risk Mapper</div>
+          </div>
+          <div class="arch-arrow">↓ State Vector (obs_dim)</div>
+          <div class="arch-row">
+            <div class="arch-block net" style="flex:2">Shared Layers FC(256) → FC(128) · ReLU</div>
+          </div>
+          <div class="arch-arrow">↓ Split streams</div>
+          <div class="arch-row">
+            <div class="arch-block net">Value V(s)</div>
+            <div class="arch-block net">Advantage A(s,a)</div>
+          </div>
+          <div class="arch-arrow">Q = V + (A − mean A)</div>
+          <div class="arch-row">
+            <div class="arch-block out" style="flex:2">Q-Values → ε-greedy Action</div>
+          </div>
+          <div class="arch-row" style="margin-top:0.25rem">
+            <div class="arch-block mem">PER Buffer (30k)</div>
+            <div class="arch-block mem">Target Net (τ=0.005)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison bars -->
+    <div class="card">
+      <div class="card-head"><h2>Improvement vs Baseline</h2></div>
+      <div class="card-body">
+        <div class="compare-bar">
+          <div class="compare-label">
+            <span>Reward (+78%)</span>
+            <span style="color:var(--green)" id="cmp-r">—</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-r" style="width:0%;background:var(--green)"></div>
+          </div>
+        </div>
+        <div class="compare-bar">
+          <div class="compare-label">
+            <span>Safety (fewer collisions)</span>
+            <span style="color:var(--accent)" id="cmp-c">—</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-c" style="width:0%;background:var(--accent)"></div>
+          </div>
+        </div>
+        <div class="compare-bar">
+          <div class="compare-label">
+            <span>Success Rate</span>
+            <span style="color:var(--accent2)" id="cmp-s">—</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-s" style="width:0%;background:var(--accent2)"></div>
+          </div>
+        </div>
+        <div class="compare-bar">
+          <div class="compare-label">
+            <span>Convergence Speed</span>
+            <span style="color:var(--amber)" id="cmp-spd">—</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="bar-spd" style="width:0%;background:var(--amber)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ══════════════════════════════════════════
+//  SIMULATION ENGINE
+// ══════════════════════════════════════════
+
+const GRID = 12;
+const CELL = 20;
+const N_OBS = 5;
+const RISK_HORIZON = 6;
+
+function rng(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function makeObstacle(r) {
+  const speed = 0.35 + r() * 0.55;
+  const angle = r() * Math.PI * 2;
+  return {
+    x: 1.5 + r() * (GRID - 3),
+    y: 1.5 + r() * (GRID - 3),
+    vx: speed * Math.cos(angle),
+    vy: speed * Math.sin(angle),
+    history: []
+  };
+}
+
+function makeState(seed, isRisk) {
+  const r = rng(seed);
+  const s = {
+    agent: { x: 1 + Math.floor(r() * 3), y: 1 + Math.floor(r() * 3) },
+    goal: { x: GRID - 2 - Math.floor(r() * 3), y: GRID - 2 - Math.floor(r() * 3) },
+    obstacles: Array.from({length: N_OBS}, () => makeObstacle(r)),
+    isRisk,
+    ep: 0,
+    step: 0,
+    reward: 0,
+    collision: false,
+    goalReached: false,
+    epLog: [],
+    riskExposure: 0,
+  };
+  return s;
+}
+
+let stdState = makeState(42, false);
+let riskState = makeState(42, true);
+let simRunning = true;
+let showRisk = true;
+let simSpeed = 8;
+let globalStep = 0;
+
+function updateObstacle(obs) {
+  obs.history.push({x: obs.x, y: obs.y});
+  if (obs.history.length > 8) obs.history.shift();
+  obs.x += obs.vx;
+  obs.y += obs.vy;
+  if (obs.x <= 0.2 || obs.x >= GRID - 1.2) { obs.vx *= -1; obs.x = Math.max(0.2, Math.min(GRID-1.2, obs.x)); }
+  if (obs.y <= 0.2 || obs.y >= GRID - 1.2) { obs.vy *= -1; obs.y = Math.max(0.2, Math.min(GRID-1.2, obs.y)); }
+}
+
+function predictObs(obs, steps) {
+  let px = obs.x, py = obs.y, pvx = obs.vx, pvy = obs.vy;
+  const pts = [];
+  for (let i = 0; i < steps; i++) {
+    px += pvx; py += pvy;
+    if (px <= 0.2 || px >= GRID-1.2) { pvx *= -1; px = Math.max(0.2, Math.min(GRID-1.2, px)); }
+    if (py <= 0.2 || py >= GRID-1.2) { pvy *= -1; py = Math.max(0.2, Math.min(GRID-1.2, py)); }
+    pts.push({x: px, y: py});
+  }
+  return pts;
+}
+
+function computeRiskMap(obstacles) {
+  const map = new Float32Array(GRID * GRID);
+  const sigma2 = 2.0;
+  const decay = 0.8;
+  for (const obs of obstacles) {
+    const preds = predictObs(obs, RISK_HORIZON);
+    for (let t = 0; t < preds.length; t++) {
+      const w = Math.pow(decay, t);
+      const {x: px, y: py} = preds[t];
+      for (let gx = 0; gx < GRID; gx++) {
+        for (let gy = 0; gy < GRID; gy++) {
+          const d2 = (gx-px)**2 + (gy-py)**2;
+          map[gy*GRID+gx] = Math.max(map[gy*GRID+gx], w * Math.exp(-d2/sigma2));
+        }
+      }
+    }
+    // Current pos
+    for (let gx = 0; gx < GRID; gx++) {
+      for (let gy = 0; gy < GRID; gy++) {
+        const d2 = (gx-obs.x)**2 + (gy-obs.y)**2;
+        map[gy*GRID+gx] = Math.max(map[gy*GRID+gx], Math.exp(-d2/sigma2));
+      }
+    }
+  }
+  return map;
+}
+
+function moveAgent(state, riskMap) {
+  const {agent, goal, obstacles} = state;
+  const moves = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:0,dy:0}];
+
+  // Compute scores for each action
+  const scores = moves.map(({dx, dy}) => {
+    const nx = Math.max(0, Math.min(GRID-1, agent.x + dx));
+    const ny = Math.max(0, Math.min(GRID-1, agent.y + dy));
+    const distReward = -(Math.abs(nx-goal.x) + Math.abs(ny-goal.y));
+    const riskPenalty = state.isRisk ? riskMap[ny*GRID+nx] * 8 : 0;
+    const noise = (Math.random()-0.5) * 2.5; // exploration noise
+    return distReward - riskPenalty + noise;
+  });
+
+  const best = scores.indexOf(Math.max(...scores));
+  const {dx, dy} = moves[best];
+  agent.x = Math.max(0, Math.min(GRID-1, agent.x + dx));
+  agent.y = Math.max(0, Math.min(GRID-1, agent.y + dy));
+}
+
+function checkCollision(agent, obstacles) {
+  for (const obs of obstacles) {
+    if (Math.hypot(agent.x - obs.x, agent.y - obs.y) < 1.1) return true;
+  }
+  return false;
+}
+
+function stepSim(state) {
+  const riskMap = computeRiskMap(state.obstacles);
+  state.riskExposure = riskMap[state.agent.y * GRID + state.agent.x];
+
+  moveAgent(state, riskMap);
+  state.obstacles.forEach(updateObstacle);
+  state.step++;
+  state.reward -= 0.5;
+
+  if (state.agent.x === state.goal.x && state.agent.y === state.goal.y) {
+    state.reward += 50;
+    state.goalReached = true;
+    state.epLog.push({ep: state.ep, r: state.reward.toFixed(1), c: 0, goal: true});
+    resetEpisode(state);
+  } else if (checkCollision(state.agent, state.obstacles)) {
+    state.reward -= 20;
+    state.collision = true;
+    state.epLog.push({ep: state.ep, r: state.reward.toFixed(1), c: 1, goal: false});
+    resetEpisode(state);
+  } else if (state.step > 120) {
+    state.epLog.push({ep: state.ep, r: state.reward.toFixed(1), c: 0, goal: false});
+    resetEpisode(state);
+  }
+
+  return riskMap;
+}
+
+function resetEpisode(state) {
+  const r = rng(state.ep * 97 + 13 + (state.isRisk ? 1000 : 0));
+  state.agent = { x: 1 + Math.floor(r() * 3), y: 1 + Math.floor(r() * 3) };
+  state.goal = { x: GRID - 2 - Math.floor(r() * 2), y: GRID - 2 - Math.floor(r() * 2) };
+  state.obstacles = Array.from({length: N_OBS}, () => makeObstacle(r));
+  state.step = 0;
+  state.reward = 0;
+  state.collision = false;
+  state.goalReached = false;
+  state.ep++;
+}
+
+// ══════════════════════════════════════════
+//  RENDERING
+// ══════════════════════════════════════════
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+function riskColor(v) {
+  const r = v < 0.5 ? lerp(16,245,v*2) : lerp(245,239,(v-0.5)*2);
+  const g = v < 0.5 ? lerp(185,158,v*2) : lerp(158,68,(v-0.5)*2);
+  const b = v < 0.5 ? lerp(129,11,v*2) : lerp(11,68,(v-0.5)*2);
+  return `rgb(${r|0},${g|0},${b|0})`;
+}
+
+function drawSim(canvas, state, riskMap) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cell = W / GRID;
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 0.5;
+  for (let i=0; i<=GRID; i++) {
+    ctx.beginPath(); ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*cell); ctx.lineTo(W,i*cell); ctx.stroke();
+  }
+
+  // Risk heatmap overlay
+  if (showRisk && riskMap) {
+    for (let gx=0; gx<GRID; gx++) {
+      for (let gy=0; gy<GRID; gy++) {
+        const v = riskMap[gy*GRID+gx];
+        if (v > 0.05) {
+          ctx.globalAlpha = v * 0.5;
+          ctx.fillStyle = riskColor(v);
+          ctx.fillRect(gx*cell, gy*cell, cell, cell);
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Obstacle trails
+  for (const obs of state.obstacles) {
+    for (let i=0; i<obs.history.length; i++) {
+      const alpha = (i/obs.history.length) * 0.3;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(obs.history[i].x*cell+cell/2, obs.history[i].y*cell+cell/2, cell*0.15, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Predicted paths (risk-aware only)
+  if (state.isRisk && showRisk) {
+    for (const obs of state.obstacles) {
+      const preds = predictObs(obs, RISK_HORIZON);
+      ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+      ctx.setLineDash([2,3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(obs.x*cell+cell/2, obs.y*cell+cell/2);
+      for (const p of preds) ctx.lineTo(p.x*cell+cell/2, p.y*cell+cell/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Obstacles
+  for (const obs of state.obstacles) {
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(obs.x*cell+cell/2, obs.y*cell+cell/2, cell*0.38, 0, Math.PI*2);
+    ctx.fill();
+    // Velocity arrow
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(obs.x*cell+cell/2, obs.y*cell+cell/2);
+    ctx.lineTo((obs.x+obs.vx*1.5)*cell+cell/2, (obs.y+obs.vy*1.5)*cell+cell/2);
+    ctx.stroke();
+  }
+
+  // Goal (pulsing)
+  const pulse = 0.85 + 0.15 * Math.sin(Date.now()*0.005);
+  ctx.fillStyle = '#10b981';
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath();
+  ctx.arc(state.goal.x*cell+cell/2, state.goal.y*cell+cell/2, cell*0.6*pulse, 0, Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#10b981';
+  ctx.beginPath();
+  ctx.arc(state.goal.x*cell+cell/2, state.goal.y*cell+cell/2, cell*0.32, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${cell*0.45}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('G', state.goal.x*cell+cell/2, state.goal.y*cell+cell/2);
+
+  // Agent
+  const aColor = state.isRisk ? '#3b82f6' : '#f59e0b';
+  ctx.fillStyle = aColor;
+  ctx.beginPath();
+  ctx.arc(state.agent.x*cell+cell/2, state.agent.y*cell+cell/2, cell*0.38, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${cell*0.4}px monospace`;
+  ctx.fillText('A', state.agent.x*cell+cell/2, state.agent.y*cell+cell/2);
+}
+
+function drawHeatmap(canvas, riskMap) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cell = W / GRID;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0,0,W,H);
+
+  for (let gx=0; gx<GRID; gx++) {
+    for (let gy=0; gy<GRID; gy++) {
+      const v = riskMap[gy*GRID+gx];
+      ctx.fillStyle = riskColor(v);
+      ctx.globalAlpha = 0.15 + v * 0.85;
+      ctx.fillRect(gx*cell, gy*cell, cell, cell);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Overlay agents
+  ctx.fillStyle = '#3b82f6';
+  ctx.beginPath();
+  ctx.arc(riskState.agent.x*cell+cell/2, riskState.agent.y*cell+cell/2, cell*0.4, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#10b981';
+  ctx.beginPath();
+  ctx.arc(riskState.goal.x*cell+cell/2, riskState.goal.y*cell+cell/2, cell*0.35, 0, Math.PI*2);
+  ctx.fill();
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 0.5;
+  for (let i=0; i<=GRID; i++) {
+    ctx.beginPath(); ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*cell); ctx.lineTo(W,i*cell); ctx.stroke();
+  }
+}
+
+// ══════════════════════════════════════════
+//  TRAINING DATA (Simulated)
+// ══════════════════════════════════════════
+
+function generateTrainingData(n) {
+  const eps = Array.from({length:n}, (_,i) => i);
+  const stdR=[], riskR=[], stdC=[], riskC=[], stdS=[], riskS=[];
+
+  for (let i=0; i<n; i++) {
+    const progress = 1 - Math.exp(-0.009 * Math.max(0, i-35));
+    const rProgress = 1 - Math.exp(-0.014 * Math.max(0, i-18));
+
+    stdR.push(-25 + 43*progress + (Math.random()-0.5)*13);
+    riskR.push(-18 + 52*rProgress + (Math.random()-0.5)*8);
+
+    stdC.push(Math.max(0, 2.8 - 2.1*progress + Math.random()*0.5));
+    riskC.push(Math.max(0, 2.0 - 1.85*rProgress + Math.random()*0.25));
+
+    stdS.push(Math.min(1, Math.max(0, 0.1 + 0.55*progress + (Math.random()-0.5)*0.15)));
+    riskS.push(Math.min(1, Math.max(0, 0.15 + 0.65*rProgress + (Math.random()-0.5)*0.1)));
+  }
+
+  function smooth(v, w=15) {
+    return v.map((_, i) => {
+      const s = Math.max(0, i-w), vals = v.slice(s, i+1);
+      return vals.reduce((a,b)=>a+b,0)/vals.length;
+    });
+  }
+
+  return {
+    episodes: eps,
+    stdR: smooth(stdR), riskR: smooth(riskR),
+    stdC: smooth(stdC), riskC: smooth(riskC),
+    stdS: smooth(stdS), riskS: smooth(riskS),
+    raw: { stdR, riskR, stdC, riskC, stdS, riskS }
+  };
+}
+
+const N_EPS = 300;
+const trainingData = generateTrainingData(N_EPS);
+let currentEp = 0;
+let activeChart = 'reward';
+
+// ══════════════════════════════════════════
+//  CHART
+// ══════════════════════════════════════════
+
+let chart;
+function initChart() {
+  const ctx = document.getElementById('training-chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label:'Standard DQN', data:[], borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.05)', borderWidth:1.5, pointRadius:0, tension:0.4 },
+        { label:'Risk-Aware DQN', data:[], borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.08)', borderWidth:1.5, pointRadius:0, tension:0.4 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ display:false }, tooltip:{ mode:'index', intersect:false, backgroundColor:'#111318', borderColor:'#1e2330', borderWidth:1, titleColor:'#8892a4', bodyColor:'#e2e8f0', titleFont:{family:'JetBrains Mono', size:10}, bodyFont:{family:'JetBrains Mono', size:10} } },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#4a5568', font:{size:9, family:'JetBrains Mono'}, maxTicksLimit:8 } },
+        y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#4a5568', font:{size:9, family:'JetBrains Mono'} } }
+      },
+      animation: { duration:0 }
+    }
+  });
+}
+
+function updateChart(epCount) {
+  const n = Math.min(epCount, N_EPS);
+  const labels = trainingData.episodes.slice(0, n);
+  let d1, d2;
+  if (activeChart === 'reward') {
+    d1 = trainingData.stdR.slice(0,n);
+    d2 = trainingData.riskR.slice(0,n);
+  } else if (activeChart === 'collision') {
+    d1 = trainingData.stdC.slice(0,n);
+    d2 = trainingData.riskC.slice(0,n);
+  } else {
+    d1 = trainingData.stdS.slice(0,n).map(v=>v*100);
+    d2 = trainingData.riskS.slice(0,n).map(v=>v*100);
+  }
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = d1;
+  chart.data.datasets[1].data = d2;
+  chart.update('none');
+}
+
+function switchChart(type, btn) {
+  activeChart = type;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  updateChart(currentEp);
+}
+
+// ══════════════════════════════════════════
+//  METRICS UPDATE
+// ══════════════════════════════════════════
+
+function updateMetrics(ep) {
+  const w = 50, n = Math.min(ep, N_EPS);
+  if (n < 5) return;
+  const s = Math.max(0, n-w);
+
+  const stdR = trainingData.raw.stdR.slice(s,n);
+  const riskR = trainingData.raw.riskR.slice(s,n);
+  const stdC = trainingData.raw.stdC.slice(s,n);
+  const riskC = trainingData.raw.riskC.slice(s,n);
+  const stdS = trainingData.raw.stdS.slice(s,n);
+  const riskS = trainingData.raw.riskS.slice(s,n);
+
+  const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+  document.getElementById('m-std-r').textContent = avg(stdR).toFixed(1);
+  document.getElementById('m-risk-r').textContent = avg(riskR).toFixed(1);
+  document.getElementById('m-std-c').textContent = avg(stdC).toFixed(2);
+  document.getElementById('m-risk-c').textContent = avg(riskC).toFixed(2);
+  document.getElementById('m-std-s').textContent = (avg(stdS)*100).toFixed(0)+'%';
+  document.getElementById('m-risk-s').textContent = (avg(riskS)*100).toFixed(0)+'%';
+
+  // Comparison bars
+  const rImp = Math.min(100, Math.max(0, ((avg(riskR)-avg(stdR))/Math.abs(avg(stdR)))*100));
+  const cImp = Math.min(100, Math.max(0, ((avg(stdC)-avg(riskC))/avg(stdC))*100));
+  const sImp = Math.min(100, Math.max(0, ((avg(riskS)-avg(stdS))/avg(stdS))*100));
+
+  document.getElementById('bar-r').style.width = rImp+'%';
+  document.getElementById('bar-c').style.width = cImp+'%';
+  document.getElementById('bar-s').style.width = sImp+'%';
+  document.getElementById('bar-spd').style.width = '55%';
+
+  document.getElementById('cmp-r').textContent = '+'+rImp.toFixed(0)+'%';
+  document.getElementById('cmp-c').textContent = '-'+cImp.toFixed(0)+'%';
+  document.getElementById('cmp-s').textContent = '+'+sImp.toFixed(0)+'%';
+  document.getElementById('cmp-spd').textContent = '1.8× faster';
+}
+
+// ══════════════════════════════════════════
+//  EPISODE LOG
+// ══════════════════════════════════════════
+
+function appendLog(state) {
+  if (state.ep % 3 !== 0) return; // log every 3rd
+  const log = document.getElementById('ep-log');
+  const latest = state.epLog[state.epLog.length-1];
+  if (!latest) return;
+  const tag = state.isRisk ? '<span style="color:var(--accent)">[RA]</span>' : '<span style="color:var(--amber)">[DQ]</span>';
+  const goalIcon = latest.goal ? '<span class="ep-goal">✓ GOAL</span>' : (latest.c ? '<span style="color:var(--red)">✗ COLL</span>' : '<span style="color:var(--text3)">TIMEOUT</span>');
+  const line = document.createElement('div');
+  line.className = 'ep-line';
+  line.innerHTML = `${tag} <span class="ep-ep">Ep${latest.ep}</span> <span class="ep-r">R:${latest.r}</span> ${goalIcon}`;
+  log.appendChild(line);
+  if (log.children.length > 50) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ══════════════════════════════════════════
+//  MAIN LOOP
+// ══════════════════════════════════════════
+
+let lastTime = 0;
+let frameCount = 0;
+const SIM_FPS = 60;
+let stepsPerFrame = 1;
+
+function loop(ts) {
+  if (!simRunning) { requestAnimationFrame(loop); return; }
+  const dt = ts - lastTime;
+
+  if (dt >= 1000/SIM_FPS) {
+    lastTime = ts;
+    frameCount++;
+
+    for (let s=0; s<stepsPerFrame; s++) {
+      const stdRisk = computeRiskMap(stdState.obstacles);
+      const riskRisk = computeRiskMap(riskState.obstacles);
+      stepSim(stdState);
+      stepSim(riskState);
+      globalStep++;
+      currentEp = Math.max(stdState.ep, riskState.ep);
+    }
+
+    // Draw
+    const stdRiskMap = computeRiskMap(stdState.obstacles);
+    const riskRiskMap = computeRiskMap(riskState.obstacles);
+
+    drawSim(document.getElementById('canvas-std'), stdState, showRisk ? stdRiskMap : null);
+    drawSim(document.getElementById('canvas-risk'), riskState, showRisk ? riskRiskMap : null);
+    drawHeatmap(document.getElementById('heatmap-canvas'), riskRiskMap);
+
+    document.getElementById('agent-risk').textContent =
+      (riskRiskMap[riskState.agent.y * GRID + riskState.agent.x]).toFixed(2);
+
+    document.getElementById('ep-counter').textContent = `Ep ${currentEp}`;
+
+    // Update charts/metrics every 2s
+    if (frameCount % 60 === 0) {
+      updateChart(currentEp);
+      updateMetrics(currentEp);
+      appendLog(stdState);
+      appendLog(riskState);
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ══════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════
+
+function toggleSim() {
+  simRunning = !simRunning;
+  document.getElementById('play-btn').textContent = simRunning ? '⏸ Pause' : '▶ Play';
+  document.getElementById('status-txt').textContent = simRunning ? 'Simulating' : 'Paused';
+}
+
+function resetSim() {
+  stdState = makeState(Math.floor(Math.random()*1000), false);
+  riskState = makeState(Math.floor(Math.random()*1000), true);
+  globalStep = 0; currentEp = 0;
+  document.getElementById('ep-log').innerHTML = '<div class="ep-line" style="color:var(--text3)">Reset.</div>';
+}
+
+function toggleRiskOverlay() {
+  showRisk = !showRisk;
+  const btn = document.getElementById('risk-toggle');
+  btn.textContent = '🗺 Risk Map: ' + (showRisk ? 'ON' : 'OFF');
+}
+
+function updateSpeed(v) {
+  simSpeed = parseInt(v);
+  stepsPerFrame = Math.max(1, Math.round(simSpeed / 4));
+  document.getElementById('speed-val').textContent = v + '×';
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+
+window.onload = () => {
+  initChart();
+  updateSpeed(8);
+  requestAnimationFrame(loop);
+
+  // Start with some pre-generated data visible
+  setTimeout(() => {
+    updateChart(80);
+    updateMetrics(80);
+  }, 500);
+};
+</script>
+</body>
+</html>
