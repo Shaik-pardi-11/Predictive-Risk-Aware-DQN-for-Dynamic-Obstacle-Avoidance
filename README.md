@@ -24,7 +24,6 @@
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Architecture](#-architecture)
-- [Future Work](#-future-work)
 
 ---
 
