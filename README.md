@@ -343,17 +343,6 @@ Obstacles (position + velocity)
 
 ---
 
-##  Future Work
-
-- [ ] **Increase training duration** — 2,000–5,000 episodes for convergence in this hard environment
-- [ ] **LSTM trajectory predictor** — replace linear prediction with a learned sequence model
-- [ ] **Curriculum learning** — start with fewer/slower obstacles and gradually increase difficulty
-- [ ] **Continuous action space** — use DDPG or SAC for smoother navigation
-- [ ] **Multi-agent extension** — cooperative navigation with multiple RL agents
-- [ ] **Real-world transfer** — deploy policy to robotic simulation (PyBullet / MuJoCo)
-- [ ] **Distributional RL** — C51 or QR-DQN for uncertainty-aware Q-value estimation
-
----
 
 ##  License
 
@@ -361,13 +350,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-##  References
 
-1. Mnih et al. (2015). *Human-level control through deep reinforcement learning.* Nature, 518, 529–533.
-2. van Hasselt et al. (2016). *Deep reinforcement learning with double Q-learning.* AAAI.
-3. Wang et al. (2016). *Dueling network architectures for deep reinforcement learning.* ICML.
-4. Schaul et al. (2016). *Prioritized experience replay.* ICLR.
-5. Sutton & Barto (2018). *Reinforcement Learning: An Introduction.* MIT Press.
 
 ---
 
