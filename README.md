@@ -1,4 +1,4 @@
-# 🧠 Risk-Aware DQN — Dynamic Obstacle Avoidance in Maze Navigation
+#  Risk-Aware DQN — Dynamic Obstacle Avoidance in Maze Navigation
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python" />
@@ -12,7 +12,7 @@
 
 ---
 
-## 📌 Table of Contents
+##  Table of Contents
 
 - [Overview](#-overview)
 - [Key Idea](#-key-idea)
@@ -28,7 +28,7 @@
 
 ---
 
-## 🔍 Overview
+## Overview
 
 Most reinforcement learning navigation agents are **reactive** — they learn to avoid obstacles only when already close to them. In fast-moving dynamic environments, this is often too late.
 
@@ -40,7 +40,7 @@ This project implements a **Risk-Aware Deep Q-Network (RA-DQN)** that:
 
 ---
 
-## 💡 Key Idea
+##  Key Idea
 
 | Agent | Strategy | Behaviour |
 |---|---|---|
@@ -51,7 +51,7 @@ The core innovation is the **risk map** — a real-time grid showing predicted o
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ├── env.py              # Custom dynamic maze environment (OpenAI Gym-style)
@@ -67,7 +67,7 @@ The core innovation is the **risk map** — a real-time grid showing predicted o
 
 ---
 
-## 🌐 Environment
+##  Environment
 
 The environment (`env.py`) is a custom **12×12 grid-based maze** with:
 
@@ -103,7 +103,7 @@ Where `N = 5` obstacles, `G = 12` grid size, `H = 5` risk horizon.
 
 ---
 
-## 🤖 Agents
+##  Agents
 
 Both agents share the same **Dueling DQN** architecture with **Prioritised Experience Replay (PER)** and **Double DQN** updates.
 
@@ -141,7 +141,7 @@ Same architecture as Standard, but trained on the risk-shaped reward signal. The
 
 ---
 
-## 🎯 Reward Design
+##  Reward Design
 
 The reward function is the core innovation of this project. It has three components:
 
@@ -177,7 +177,7 @@ The risk map value at the agent's current cell (range 0–1) is multiplied by a 
 
 ---
 
-## 📊 Results
+##  Results
 
 Training was conducted for **500 episodes** on a 12×12 grid with 5 dynamic obstacles.
 
@@ -191,7 +191,7 @@ Training was conducted for **500 episodes** on a 12×12 grid with 5 dynamic obst
 | Total Goals (500 ep) | 3 | **6** | **2× more** |
 | Total Collisions | 497 | **494** | **-3** |
 
-> ⚠️ **Note:** Both agents are still in early training at 500 episodes. The environment is highly challenging — a 12×12 grid with 5 fast-moving obstacles and sparse goal reward. The Risk-Aware agent demonstrates measurably better performance even at this early stage, achieving **twice the number of successful goal reaches**.
+
 
 ### Ablation — Penalty Weight Study (`test_penalty.py`)
 
@@ -206,7 +206,7 @@ Four penalty configurations were tested (300 episodes each):
 
 ---
 
-## ⚙️ Installation
+##  Installation
 
 ```bash
 # Clone the repository
@@ -225,7 +225,7 @@ pip install numpy
 
 ---
 
-## 🚀 Usage
+##  Usage
 
 ### Train Both Agents (500 episodes)
 
@@ -295,7 +295,7 @@ print(env.render_ascii())
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ### Risk Map Pipeline
 
@@ -343,7 +343,7 @@ Obstacles (position + velocity)
 
 ---
 
-## 🔮 Future Work
+##  Future Work
 
 - [ ] **Increase training duration** — 2,000–5,000 episodes for convergence in this hard environment
 - [ ] **LSTM trajectory predictor** — replace linear prediction with a learned sequence model
@@ -355,13 +355,13 @@ Obstacles (position + velocity)
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🙏 References
+##  References
 
 1. Mnih et al. (2015). *Human-level control through deep reinforcement learning.* Nature, 518, 529–533.
 2. van Hasselt et al. (2016). *Deep reinforcement learning with double Q-learning.* AAAI.
