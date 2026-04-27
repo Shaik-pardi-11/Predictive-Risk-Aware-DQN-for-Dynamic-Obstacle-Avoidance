@@ -94,7 +94,7 @@ Where `N = 5` obstacles, `G = 12` grid size, `H = 5` risk horizon.
 
 | Parameter | Value | Description |
 |---|---|---|
-| Grid size | 12 × 12 | Maze dimensions |
+| Grid size | 12 × 12 | Maze dimensions .|
 | Obstacles | 5 | Dynamic moving obstacles |
 | Max steps | 150 | Per episode limit |
 | Risk horizon | 5 | Steps ahead for trajectory prediction |
