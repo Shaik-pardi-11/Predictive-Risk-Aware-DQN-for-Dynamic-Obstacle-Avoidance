@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square" />
 </p>
 
-> A reinforcement learning project comparing **Standard DQN** vs **Risk-Aware DQN** for autonomous navigation in dynamic environments with moving obstacles. The risk-aware agent uses trajectory prediction and a custom reward function to make **proactive** safety decisions — avoiding danger before it arrives, not after.
+> A reinforcement learning project comparing **Standard DQN** vs **Risk-Aware DQN** for autonomous navigation in dynamic environments with moving obstacles. The risk-aware agent uses trajectory prediction and a custom reward function to make **proactive** safety decisions — avoiding danger before it arrives, not after..
 
 ---
 
