@@ -353,4 +353,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-<p align="center">Made with ❤️ for research in safe autonomous navigation</p>
+<p align="center">Made with ❤️ for research in safe autonomous navigation...</p>
