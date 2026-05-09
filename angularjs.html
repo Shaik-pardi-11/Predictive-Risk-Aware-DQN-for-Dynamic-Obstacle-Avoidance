@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html ng-app="app">
+<head>
+<title>Planets</title>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+<style>
+body{font-family:Arial; padding:20px;}
+table{width:100%; border-collapse:collapse;}
+th,td{border:1px solid gray; padding:8px; text-align:center;}
+input,select{margin:10px; padding:5px;}
+</style>
+</head>
+<body ng-controller="ctrl">
+<h2>Planet Table</h2>
+<input type="text" ng-model="search" placeholder="Search...">
+<select ng-model="sort">
+<option value="name">Name</option>
+<option value="type">Type</option>
+<option value="distance">Distance</option>
+<option value="moons">Moons</option>
+</select>
+<table>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Distance</th>
+<th>Moons</th>
+</tr>
+<tr ng-repeat="p in planets | filter:search | orderBy:sort">
+<td>{{p.name}}</td>
+<td>{{p.type}}</td>
+<td>{{p.distance}}</td>
+<td>{{p.moons}}</td>
+</tr>
+</table>
+<script>
+angular.module("app",[])
+.controller("ctrl",function($scope){
+$scope.planets=[
+{name:"Earth",type:"Rocky",distance:"150M",moons:1},
+{name:"Mars",type:"Rocky",distance:"228M",moons:2},
+{name:"Jupiter",type:"Gas",distance:"778M",moons:95}
+];
+});
+</script>
+</body>
+</html>
