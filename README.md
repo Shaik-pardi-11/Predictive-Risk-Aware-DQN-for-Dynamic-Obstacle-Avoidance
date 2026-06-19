@@ -340,17 +340,5 @@ Obstacles (position + velocity)
   Soft update target network (τ=0.005) every 100 steps
 ```
 
----
-
-
-##  License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-
-
----
-
 <p align="center">Made with ❤️ for research in safe autonomous navigation...</p>
+---
